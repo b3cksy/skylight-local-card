@@ -4,7 +4,7 @@ A standalone Home Assistant Lovelace card for controlling the 60-color preset pa
 
 This is a frontend card. It requires the separate [Skylight Local integration](https://github.com/b3cksy/skylight-local) and its preset, power, and mode entities. The integration itself does not include or install this card.
 
-![Skylight Local color-control card preview](docs/skylight-local-card.png)
+![Skylight Local color-control card preview](docs/skylight-local-card-preview.png)
 
 ## Features
 
