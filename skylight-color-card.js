@@ -125,32 +125,17 @@ class SkylightColorCard extends HTMLElement {
         .swatch:focus-visible { outline: 2px solid #178fe2; outline-offset: 2px; }
         .swatch[aria-pressed="true"] {
           z-index: 2;
-          border: 2px solid #fff;
-          outline: 3px solid #086fd1;
-          outline-offset: 1px;
-          box-shadow: inset 0 0 0 2px #14283d, 0 0 0 2px #fff, 0 2px 8px rgba(0, 0, 0, .38);
-          transform: scale(1.06);
+          box-shadow: inset 0 0 0 4px #fff000;
         }
-        .swatch[aria-pressed="true"]::after {
-          content: "✓";
+        .marker-icon {
           position: absolute;
-          right: 2px;
-          bottom: 2px;
+          inset: 0;
           display: grid;
           place-items: center;
-          width: clamp(12px, 3.8vw, 18px);
-          height: clamp(12px, 3.8vw, 18px);
-          border: 1px solid #fff;
-          border-radius: 50%;
-          color: #fff;
-          background: #14283d;
-          font-size: clamp(8px, 2.6vw, 12px);
-          font-weight: 900;
-          line-height: 1;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, .45);
+          color: var(--marker-color);
+          pointer-events: none;
         }
-        .swatch::before { content: attr(data-marker); position: absolute; inset: 0; display: grid; place-items: center; color: var(--marker-color, #fff); font-size: clamp(10px, 3vw, 20px); font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,.12); pointer-events:none; }
-        .swatch:not([data-marker=""]) { overflow: visible; }
+        .marker-icon svg { display: block; width: 62%; height: 62%; overflow: visible; }
         .intensity-title { margin: 30px 0 14px; text-align: center; font-size: 18px; font-weight: 600; }
         .intensity {
           display: grid;
@@ -255,7 +240,18 @@ class SkylightColorCard extends HTMLElement {
       this._palette.appendChild(label);
     }
 
-    const markers = { A4: ["▲", "#aaa"], A7: ["❧", "#75a976"], C1: ["☾", "#7580c8"], C5: ["♜", "#e9b83e"], D6: ["❧", "#79bf65"], E9: ["☼", "#e9d930"], F1: ["✿", "#d4779d"], F7: ["❧", "#b87878"] };
+    const icon = (paths, fill = "currentColor") => `<svg viewBox="0 0 24 24" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">${paths.replaceAll("__FILL__", fill)}</svg>`;
+    const leafGradientId = `skylight-leaf-${Math.random().toString(36).slice(2)}`;
+    const markers = {
+      A4: { color: "#bdbdbd", svg: icon('<path fill="__FILL__" d="M1.5 19.5 7.2 8.1a1.5 1.5 0 0 1 2.7 0l1.8 3.6 1.1-2.1a1.5 1.5 0 0 1 2.7 0l5.5 9.9H1.5Z"/><path fill="#fff" d="m6.2 11.7 1.9-3.5 1.7 3.5-1.7-.9-1.9.9Zm6.7 1.4 1.2-2.4 1.7 3-1.5-.7-1.4.1Z"/>') },
+      A7: { color: "#75a976", svg: icon('<path fill="__FILL__" d="M21.3 2.8C13.9 3 7.2 4.4 4.2 8.5c-2.5 3.4-.8 7.5 2.7 8.2 3.4.7 6.5-2.3 8.5-5.1 1.4-2 2.8-3.5 5.2-5.2-1.4 2.7-3 5.2-5.8 7.8-2.5 2.3-5.6 3.7-9.2 4.1v2c5-.3 9.1-2.4 12-5.8 3.5-4.1 4.6-8.3 3.7-11.7Z"/>') },
+      C1: { color: "#777dc4", svg: icon('<path fill="__FILL__" d="M20.6 15.6A8.8 8.8 0 0 1 8.4 3.4 9.7 9.7 0 1 0 20.6 15.6Z"/>') },
+      C5: { color: "#ffc936", svg: icon('<path fill="__FILL__" d="M7 3h10v2h4v4.2c0 3-1.9 4.9-5.1 5.7A5.2 5.2 0 0 1 13 17v2h4.5v2h-11v-2H11v-2a5.2 5.2 0 0 1-2.9-2.1C5 14.1 3 12.2 3 9.2V5h4V3Zm0 4H5v2.2c0 1.5.6 2.4 2 2.9V7Zm12 0v5.1c1.4-.5 2-1.4 2-2.9V7h-2Z"/>') },
+      D6: { color: "#8ad982", svg: icon(`<defs><linearGradient id="${leafGradientId}" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#b8ff48"/><stop offset=".55" stop-color="#78da67"/><stop offset="1" stop-color="#ff967d"/></linearGradient></defs><path fill="url(#${leafGradientId})" d="M21.3 2.8C13.9 3 7.2 4.4 4.2 8.5c-2.5 3.4-.8 7.5 2.7 8.2 3.4.7 6.5-2.3 8.5-5.1 1.4-2 2.8-3.5 5.2-5.2-1.4 2.7-3 5.2-5.8 7.8-2.5 2.3-5.6 3.7-9.2 4.1v2c5-.3 9.1-2.4 12-5.8 3.5-4.1 4.6-8.3 3.7-11.7Z"/>`) },
+      E9: { color: "#fff22b", svg: icon('<path fill="__FILL__" d="M11 1h2v4h-2zm0 18h2v4h-2zM1 11h4v2H1zm18 0h4v2h-4zM3.2 4.6l1.4-1.4 2.8 2.8L6 7.4zm12.6 12.6 1.4-1.4 2.8 2.8-1.4 1.4zM18 3.2l1.4 1.4L16.6 7.4l-1.4-1.4zM5 16.2l1.4 1.4-2.8 2.8-1.4-1.4z"/><circle fill="__FILL__" cx="12" cy="12" r="5.2"/>') },
+      F1: { color: "#d779a7", svg: icon('<path fill="__FILL__" d="m12 1.2 1.8 2.6 3.1-1.1.8 3.2 3.3.5-.5 3.3 2.6 1.8-2.6 1.8 1.1 3.1-3.2.8-.5 3.3-3.3-.5-1.8 2.6-1.8-2.6-3.1 1.1-.8-3.2-3.3-.5.5-3.3L1 12l2.6-1.8-1.1-3.1 3.2-.8.5-3.3 3.3.5L12 1.2Z"/><circle cx="12" cy="12" r="3.1" fill="#fff"/><circle cx="12" cy="12" r="1.7" fill="__FILL__"/>') },
+      F7: { color: "#bd9294", svg: icon('<path fill="__FILL__" d="M21.3 2.8C13.9 3 7.2 4.4 4.2 8.5c-2.5 3.4-.8 7.5 2.7 8.2 3.4.7 6.5-2.3 8.5-5.1 1.4-2 2.8-3.5 5.2-5.2-1.4 2.7-3 5.2-5.8 7.8-2.5 2.3-5.6 3.7-9.2 4.1v2c5-.3 9.1-2.4 12-5.8 3.5-4.1 4.6-8.3 3.7-11.7Z"/>') },
+    };
     PRESET_ROWS.forEach((row, rowIndex) => {
       const rowLabel = document.createElement("span");
       rowLabel.className = "row-label";
@@ -269,8 +265,15 @@ class SkylightColorCard extends HTMLElement {
         button.className = "swatch";
         button.type = "button";
         button.dataset.effect = effect;
-        button.dataset.marker = markers[effect]?.[0] || "";
-        if (markers[effect]) button.style.setProperty("--marker-color", markers[effect][1]);
+        const marker = markers[effect];
+        if (marker) {
+          button.style.setProperty("--marker-color", marker.color);
+          const markerIcon = document.createElement("span");
+          markerIcon.className = "marker-icon";
+          markerIcon.innerHTML = marker.svg;
+          markerIcon.setAttribute("aria-hidden", "true");
+          button.appendChild(markerIcon);
+        }
         button.style.setProperty("--swatch", COLOR_SWATCHES[colorIndex]);
         button.title = effect;
         button.setAttribute("role", "gridcell");
@@ -531,13 +534,13 @@ class SkylightColorCard extends HTMLElement {
 
 }
 
-if (!customElements.get("skylight-color-card-v4")) {
-  customElements.define("skylight-color-card-v4", SkylightColorCard);
+if (!customElements.get("skylight-color-card")) {
+  customElements.define("skylight-color-card", SkylightColorCard);
 }
 
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "skylight-color-card-v4",
+  type: "skylight-color-card",
   name: "Skylight color palette",
   description: "Color grid and intensity control for Skylight lamps",
   preview: true,

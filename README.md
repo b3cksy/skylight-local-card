@@ -23,7 +23,7 @@ This is a frontend card. It requires the separate [Skylight Local integration](h
 4. Add a manual card to a dashboard using YAML mode:
 
 ```yaml
-type: custom:skylight-color-card-v4
+type: custom:skylight-color-card
 name: Color management
 entity: select.skylight_local_preset
 power_entity: number.skylight_local_power
