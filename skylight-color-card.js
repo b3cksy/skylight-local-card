@@ -35,10 +35,10 @@ function presetFromColorCode(value) {
 class SkylightColorCard extends HTMLElement {
   setConfig(config) {
     if (!config.entity || !config.power_entity) {
-      throw new Error("Podaj encję select presetu i number mocy.");
+      throw new Error("Configure the preset select entity and power number entity.");
     }
     this.config = {
-      name: "Zarządzanie kolorami",
+      name: "Color management",
       device_name: "H-BAR FM",
       mode_entity: null,
       ...config,
@@ -209,27 +209,27 @@ class SkylightColorCard extends HTMLElement {
       <ha-card>
           <div class="topbar"><span class="device"></span><span class="title"></span><span class="status"></span></div>
         <div class="content">
-          <div class="section-title">Paleta kolorów</div>
-          <div class="palette" role="grid" aria-label="Wybór predefiniowanego koloru"></div>
-          <div class="intensity-title">Intensywność: <span class="intensity-value-heading">30%</span></div>
+          <div class="section-title">Color palette</div>
+          <div class="palette" role="grid" aria-label="Preset color selection"></div>
+          <div class="intensity-title">Intensity: <span class="intensity-value-heading">30%</span></div>
           <div class="intensity">
-            <button class="step decrease" type="button" aria-label="Zmniejsz intensywność">−</button>
+            <button class="step decrease" type="button" aria-label="Decrease intensity">−</button>
             <div class="range-wrap">
-              <div class="range-label"><span class="intensity-label">Moc ręczna</span><span class="intensity-value">30%</span></div>
-              <input class="range" type="range" min="1" max="100" step="1" aria-label="Intensywność lampy">
+              <div class="range-label"><span class="intensity-label">Manual power</span><span class="intensity-value">30%</span></div>
+              <input class="range" type="range" min="1" max="100" step="1" aria-label="Lamp intensity">
             </div>
-            <button class="step increase" type="button" aria-label="Zwiększ intensywność">+</button>
+            <button class="step increase" type="button" aria-label="Increase intensity">+</button>
           </div>
-          <div class="spectrum" hidden aria-label="Widmo światła H-BAR-F">
-            <svg class="spectrum-svg" viewBox="0 0 420 230" role="img" aria-label="Widmo lampy od 400 do 700 nanometrów"></svg>
+          <div class="spectrum" hidden aria-label="H-BAR-F light spectrum">
+            <svg class="spectrum-svg" viewBox="0 0 420 230" role="img" aria-label="Lamp spectrum from 400 to 700 nanometers"></svg>
           </div>
-          <div class="app-modes" role="group" aria-label="Tryb lampy">
+          <div class="app-modes" role="group" aria-label="Lamp mode">
             <button class="mode" type="button" data-mode="auto">Auto</button>
-            <button class="mode" type="button" data-mode="manual">Ręczny</button>
-            <button class="mode" type="button" data-mode="superior" disabled>Nadrzędny</button>
+            <button class="mode" type="button" data-mode="manual">Manual</button>
+            <button class="mode" type="button" data-mode="superior" disabled>Master</button>
             <button class="mode" type="button" data-mode="demo">Demo</button>
-            <button class="mode" type="button" data-mode="off">Wył.</button>
-            <button class="mode" type="button" data-mode="clone" disabled>Klon</button>
+            <button class="mode" type="button" data-mode="off">Off</button>
+            <button class="mode" type="button" data-mode="clone" disabled>Clone</button>
           </div>
         </div>
       </ha-card>
@@ -274,7 +274,7 @@ class SkylightColorCard extends HTMLElement {
         button.style.setProperty("--swatch", COLOR_SWATCHES[colorIndex]);
         button.title = effect;
         button.setAttribute("role", "gridcell");
-        button.setAttribute("aria-label", `Kolor ${effect}`);
+        button.setAttribute("aria-label", `Color ${effect}`);
         button.setAttribute("aria-pressed", "false");
         button.addEventListener("click", () => this._selectEffect(effect));
         this._palette.appendChild(button);
@@ -300,7 +300,7 @@ class SkylightColorCard extends HTMLElement {
     if (!this._hass || !this._palette) return;
     const state = this._hass.states[this.config.entity];
     if (!state) {
-      this._showError(`Nie znaleziono encji ${this.config.entity}.`);
+      this._showError(`Entity ${this.config.entity} was not found.`);
       return;
     }
 
@@ -325,29 +325,29 @@ class SkylightColorCard extends HTMLElement {
     this.shadowRoot.querySelector(".content").hidden = false;
     const activePreset = currentEffect;
     const presetLabel = reportedPreset
-      ? `${modeState === "auto" ? "PRESET LAMPY" : "PRESET"} ${reportedPreset}`
+      ? `${modeState === "auto" ? "LAMP PRESET" : "PRESET"} ${reportedPreset}`
       : "PRESET —";
     const lastRead = colorState?.last_updated ? Date.parse(colorState.last_updated) : NaN;
     const ageMinutes = Number.isFinite(lastRead) ? Math.max(0, Math.floor((Date.now() - lastRead) / 60000)) : null;
     const staleLabel = ageMinutes == null
       ? ""
       : ageMinutes >= 1440
-        ? ` · ODCZYT ${Math.floor(ageMinutes / 1440)} DNI TEMU`
+        ? ` · READ ${Math.floor(ageMinutes / 1440)} DAYS AGO`
         : ageMinutes >= 5
-          ? ` · ODCZYT ${ageMinutes} MIN TEMU`
+          ? ` · READ ${ageMinutes} MIN AGO`
           : "";
     const modeLabel = modeState === "manual"
       ? "MANUAL"
       : modeState === "auto"
-        ? "AUTO · HARMONOGRAM"
+        ? "AUTO · SCHEDULE"
         : modeState === "demo"
           ? "DEMO"
-          : "WYŁĄCZONA";
+          : "OFF";
     const statusText = `${modeLabel} · ${presetLabel}${staleLabel}`;
     this.shadowRoot.querySelector(".status").textContent = statusText;
     this._intensityLabel.textContent = modeState === "manual"
-      ? "Moc ręczna"
-      : "Moc ręczna (ustawienie)";
+      ? "Manual power"
+      : "Manual power (setting)";
     if (!this._intensityDragging) this._showIntensity(percent);
     this._renderSpectrum(channelValues, percent);
 
@@ -363,9 +363,9 @@ class SkylightColorCard extends HTMLElement {
       button.disabled = !modeEntity || !supported;
       button.setAttribute("aria-pressed", String(button.dataset.mode === currentMode));
       button.title = !supported
-        ? "Ten tryb nie jest jeszcze obsługiwany przez integrację."
+        ? "This mode is not supported by the integration yet."
         : button.disabled && !modeEntity
-          ? "Podaj mode_entity w konfiguracji karty, aby sterować tym trybem."
+          ? "Set mode_entity in the card configuration to control this mode."
           : "";
     });
   }
@@ -466,7 +466,7 @@ class SkylightColorCard extends HTMLElement {
       return `<line x1="${x}" y1="${bottom}" x2="${x}" y2="${bottom + 6}" class="tick"/><text x="${x}" y="${bottom + 24}" text-anchor="middle">${tick}</text>`;
     }).join("");
 
-    svg.innerHTML = `<defs><linearGradient id="spectrum-fill" x1="0" x2="1"><stop offset="0%" stop-color="#5424a8"/><stop offset="17%" stop-color="#0877d1"/><stop offset="38%" stop-color="#00c7c7"/><stop offset="52%" stop-color="#19c856"/><stop offset="67%" stop-color="#e4d700"/><stop offset="82%" stop-color="#ff8a00"/><stop offset="100%" stop-color="#d60000"/></linearGradient></defs><g class="axes">${grid}<line x1="${left}" y1="${top}" x2="${left}" y2="${bottom}" class="axis-line"/><line x1="${left}" y1="${bottom}" x2="${right}" y2="${bottom}" class="axis-line"/>${wavelengths}<text x="${(left + right) / 2}" y="226" text-anchor="middle">Długość fali [nm]</text></g><path d="${area}" fill="url(#spectrum-fill)" stroke="#111" stroke-width="1.2" stroke-linejoin="round"/>`;
+    svg.innerHTML = `<defs><linearGradient id="spectrum-fill" x1="0" x2="1"><stop offset="0%" stop-color="#5424a8"/><stop offset="17%" stop-color="#0877d1"/><stop offset="38%" stop-color="#00c7c7"/><stop offset="52%" stop-color="#19c856"/><stop offset="67%" stop-color="#e4d700"/><stop offset="82%" stop-color="#ff8a00"/><stop offset="100%" stop-color="#d60000"/></linearGradient></defs><g class="axes">${grid}<line x1="${left}" y1="${top}" x2="${left}" y2="${bottom}" class="axis-line"/><line x1="${left}" y1="${bottom}" x2="${right}" y2="${bottom}" class="axis-line"/>${wavelengths}<text x="${(left + right) / 2}" y="226" text-anchor="middle">Wavelength [nm]</text></g><path d="${area}" fill="url(#spectrum-fill)" stroke="#111" stroke-width="1.2" stroke-linejoin="round"/>`;
     svg.querySelectorAll("text").forEach((node) => {
       node.setAttribute("font-size", "11");
       node.setAttribute("font-family", "Arial, sans-serif");
