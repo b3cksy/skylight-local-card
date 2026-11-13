@@ -37,11 +37,16 @@ class SkylightColorCard extends HTMLElement {
     if (!this._scheduleTimer) {
       this._scheduleTimer = window.setInterval(() => this._renderSchedule(), 60_000);
     }
+    if (!this._powerRefreshTimer) {
+      this._powerRefreshTimer = window.setInterval(() => this._refreshPower(), 5_000);
+    }
   }
 
   disconnectedCallback() {
     window.clearInterval(this._scheduleTimer);
     this._scheduleTimer = null;
+    window.clearInterval(this._powerRefreshTimer);
+    this._powerRefreshTimer = null;
   }
 
   setConfig(config) {
@@ -60,6 +65,20 @@ class SkylightColorCard extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
     this._update();
+  }
+
+  async _refreshPower() {
+    if (!this._hass || document.visibilityState === "hidden" || this._refreshingPower) return;
+    this._refreshingPower = true;
+    try {
+      await this._hass.callService("homeassistant", "update_entity", {
+        entity_id: this._manualIntensityEntity(),
+      });
+    } catch (error) {
+      console.warn("Unable to refresh Skylight power from the lamp", error);
+    } finally {
+      this._refreshingPower = false;
+    }
   }
 
   getCardSize() {
@@ -96,7 +115,6 @@ class SkylightColorCard extends HTMLElement {
         }
         .title { flex: 1; text-align: center; }
         .device { flex: 1; text-align: center; white-space: nowrap; }
-        .status { flex: 1; text-align: center; font-size: 12px; font-weight: 600; opacity: .95; }
         .content { padding: 34px 12px 0; }
         .section-title {
           margin: 0 0 8px;
@@ -207,16 +225,16 @@ class SkylightColorCard extends HTMLElement {
         }
       </style>
       <ha-card>
-          <div class="topbar"><span class="device"></span><span class="title"></span><span class="status"></span></div>
+          <div class="topbar"><span class="device"></span><span class="title"></span></div>
         <div class="content">
           <div class="section-title">Color palette</div>
           <div class="palette" role="grid" aria-label="Preset color selection"></div>
-          <div class="intensity-title">Intensity: <span class="intensity-value-heading">30%</span></div>
+          <div class="intensity-title">Intensity: <span class="intensity-value-heading">—</span></div>
           <div class="intensity">
             <button class="step decrease" type="button" aria-label="Decrease intensity">−</button>
             <div class="range-wrap">
               <div class="range-label"><span class="intensity-label">Manual power</span><span class="intensity-value">30%</span></div>
-              <input class="range" type="range" min="1" max="100" step="1" aria-label="Lamp intensity">
+          <input class="range" type="range" min="0" max="100" step="1" aria-label="Lamp intensity">
             </div>
             <button class="step increase" type="button" aria-label="Increase intensity">+</button>
           </div>
@@ -334,8 +352,6 @@ class SkylightColorCard extends HTMLElement {
     const colorState = this._hass.states[colorEntity];
     const reportedPreset = colorState ? presetFromColorCode(colorState.state) : null;
     const currentEffect = reportedPreset || state.state;
-    const powerState = this._hass.states[this.config.power_entity];
-    const percent = powerState ? Number(powerState.state) : 30;
     const modeEntity = this._findModeEntity();
     const modeState = modeEntity ? this._hass.states[modeEntity]?.state : null;
     const scheduleEntity = this.config.schedule_entity || `sensor.${objectId}_schedule_data`;
@@ -347,36 +363,19 @@ class SkylightColorCard extends HTMLElement {
       const value = channelState ? Number(channelState.state) : NaN;
       return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : null;
     });
+    const liveOutput = channelValues.every((value) => value !== null)
+      ? Math.max(...channelValues)
+      : null;
 
     this.shadowRoot.querySelector(".error")?.remove();
     this.shadowRoot.querySelector(".content").hidden = false;
     const activePreset = currentEffect;
-    const presetLabel = reportedPreset
-      ? `${modeState === "auto" ? "LAMP PRESET" : "PRESET"} ${reportedPreset}`
-      : "PRESET —";
-    const lastRead = colorState?.last_updated ? Date.parse(colorState.last_updated) : NaN;
-    const ageMinutes = Number.isFinite(lastRead) ? Math.max(0, Math.floor((Date.now() - lastRead) / 60000)) : null;
-    const staleLabel = ageMinutes == null
-      ? ""
-      : ageMinutes >= 1440
-        ? ` · READ ${Math.floor(ageMinutes / 1440)} DAYS AGO`
-        : ageMinutes >= 5
-          ? ` · READ ${ageMinutes} MIN AGO`
-          : "";
-    const modeLabel = modeState === "manual"
-      ? "MANUAL"
-      : modeState === "auto"
-        ? "AUTO · SCHEDULE"
-        : modeState === "demo"
-          ? "DEMO"
-          : "OFF";
-    const statusText = `${modeLabel} · ${presetLabel}${staleLabel}`;
-    this.shadowRoot.querySelector(".status").textContent = statusText;
-    this._intensityLabel.textContent = modeState === "manual"
-      ? "Manual power"
-      : "Manual power (setting)";
-    if (!this._intensityDragging) this._showIntensity(percent);
-    this._renderSpectrum(channelValues, percent);
+    this._intensityLabel.textContent = "Power setting";
+    this.shadowRoot.querySelector(".intensity-value-heading").textContent = liveOutput == null
+      ? "—"
+      : `${Math.round(liveOutput)}%`;
+    if (!this._intensityDragging) this._showIntensity(liveOutput ?? 0);
+    this._renderSpectrum(channelValues, liveOutput ?? 0);
     this._renderSchedule();
 
     this._palette.querySelectorAll(".swatch").forEach((button) => {
@@ -418,6 +417,33 @@ class SkylightColorCard extends HTMLElement {
     return this._hass.states[candidate] ? candidate : null;
   }
 
+  _currentScheduledIntensity() {
+    if (!this._scheduleRaw) return null;
+    const points = this._scheduleRaw.split(":").filter(Boolean).map((row) => {
+      const [hour, minute, , , intensity] = row.split(";").map(Number);
+      if (![hour, minute, intensity].every(Number.isFinite)
+        || hour < 0 || hour > 23 || minute < 0 || minute > 59
+        || intensity < 0 || intensity > 100) return null;
+      return { minute: hour * 60 + minute, intensity };
+    }).filter(Boolean).sort((a, b) => a.minute - b.minute);
+    if (points.length < 2) return null;
+
+    const now = new Date();
+    const minuteNow = now.getHours() * 60 + now.getMinutes();
+    let previous = points.filter((point) => point.minute <= minuteNow).at(-1);
+    let next = points.find((point) => point.minute > minuteNow);
+    if (!previous) previous = { ...points.at(-1), minute: points.at(-1).minute - 1440 };
+    if (!next) next = { ...points[0], minute: points[0].minute + 1440 };
+    const fraction = (minuteNow - previous.minute) / (next.minute - previous.minute);
+    return Math.round(previous.intensity + (next.intensity - previous.intensity) * fraction);
+  }
+
+  _manualIntensityEntity() {
+    if (this.config.manual_intensity_entity) return this.config.manual_intensity_entity;
+    const baseName = this.config.entity.split(".")[1].replace(/_preset$/, "");
+    return `sensor.${baseName}_manual_intensity`;
+  }
+
   _currentEffect() {
     const state = this._hass.states[this.config.entity];
     return state?.state || "A1";
@@ -435,10 +461,9 @@ class SkylightColorCard extends HTMLElement {
   }
 
   _showIntensity(value) {
-    const percent = Math.max(1, Math.min(100, Math.round(value)));
+    const percent = Math.max(0, Math.min(100, Math.round(value)));
     this._intensityInput.value = String(percent);
     this._intensityValue.textContent = `${percent}%`;
-    this._intensityHeading.textContent = `${percent}%`;
   }
 
   _renderSchedule() {
@@ -578,13 +603,13 @@ class SkylightColorCard extends HTMLElement {
   }
 
   _changeIntensity(delta) {
-    const next = Math.max(1, Math.min(100, this._currentIntensity() + delta));
+    const next = Math.max(0, Math.min(100, this._currentIntensity() + delta));
     this._showIntensity(next);
     this._sendIntensity(next);
   }
 
   _sendIntensity(brightness) {
-    const percent = Math.max(1, Math.min(100, Math.round(brightness)));
+    const percent = Math.max(0, Math.min(100, Math.round(brightness)));
     this._hass.callService("number", "set_value", {
       entity_id: this.config.power_entity,
       // number.set_value validates this as a JSON number; passing a string
