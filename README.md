@@ -13,6 +13,7 @@ This is a frontend card. It requires the separate [Skylight Local integration](h
 - Controls output power with a slider and plus/minus buttons.
 - Provides Auto, Manual, Demo, and Off mode controls.
 - Displays current mode, preset, and recent status information.
+- Plots the schedule stored in the lamp, with a live line marking the current time.
 - Includes the SL Control spectrum plot for the supported H-BAR-F profile.
 
 ## Install as a dashboard resource
@@ -28,9 +29,10 @@ name: Color management
 entity: select.skylight_local_preset
 power_entity: number.skylight_local_power
 mode_entity: select.skylight_local_mode
+schedule_entity: sensor.skylight_local_schedule_data
 ```
 
-Replace entity IDs if Home Assistant assigned different IDs to your lamp. `mode_entity` is optional if the card can find the matching mode selector for the same lamp.
+Replace entity IDs if Home Assistant assigned different IDs to your lamp. `mode_entity` is optional if the card can find the matching mode selector for the same lamp. `schedule_entity` is optional if the card can find the schedule sensor automatically.
 
 ## Requirements and scope
 

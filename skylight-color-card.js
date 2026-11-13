@@ -33,6 +33,17 @@ function presetFromColorCode(value) {
 }
 
 class SkylightColorCard extends HTMLElement {
+  connectedCallback() {
+    if (!this._scheduleTimer) {
+      this._scheduleTimer = window.setInterval(() => this._renderSchedule(), 60_000);
+    }
+  }
+
+  disconnectedCallback() {
+    window.clearInterval(this._scheduleTimer);
+    this._scheduleTimer = null;
+  }
+
   setConfig(config) {
     if (!config.entity || !config.power_entity) {
       throw new Error("Configure the preset select entity and power number entity.");
@@ -184,6 +195,10 @@ class SkylightColorCard extends HTMLElement {
         .spectrum { margin: 0 8px 26px; }
         .spectrum[hidden] { display:none; }
         .spectrum svg { display:block; width:100%; height:auto; overflow:visible; }
+        .schedule { margin: 0 8px 28px; }
+        .schedule[hidden] { display:none; }
+        .schedule-title { margin: 0 0 8px; text-align:center; font-size:16px; font-weight:600; }
+        .schedule svg { display:block; width:100%; height:auto; overflow:visible; }
         .error { padding: 18px; color: #a94442; font-size: 14px; }
         @media (max-width: 360px) {
           .content { padding: 14px 12px 12px; }
@@ -208,6 +223,10 @@ class SkylightColorCard extends HTMLElement {
           <div class="spectrum" hidden aria-label="H-BAR-F light spectrum">
             <svg class="spectrum-svg" viewBox="0 0 420 230" role="img" aria-label="Lamp spectrum from 400 to 700 nanometers"></svg>
           </div>
+          <div class="schedule" hidden aria-label="Lamp daily schedule">
+            <div class="schedule-title">Daily schedule</div>
+            <svg class="schedule-svg" viewBox="0 0 420 220" role="img" aria-label="Scheduled lamp intensity from 0:00 to 24:00"></svg>
+          </div>
           <div class="app-modes" role="group" aria-label="Lamp mode">
             <button class="mode" type="button" data-mode="auto">Auto</button>
             <button class="mode" type="button" data-mode="manual">Manual</button>
@@ -225,6 +244,7 @@ class SkylightColorCard extends HTMLElement {
     this._intensityValue = this.shadowRoot.querySelector(".intensity-value");
     this._intensityHeading = this.shadowRoot.querySelector(".intensity-value-heading");
     this._intensityLabel = this.shadowRoot.querySelector(".intensity-label");
+    this._scheduleRaw = null;
     this._modeEntityExplicit = Boolean(this.config.mode_entity);
     this.shadowRoot.querySelector(".title").textContent = this.config.name;
     this.shadowRoot.querySelector(".device").textContent = this.config.device_name;
@@ -318,6 +338,10 @@ class SkylightColorCard extends HTMLElement {
     const percent = powerState ? Number(powerState.state) : 30;
     const modeEntity = this._findModeEntity();
     const modeState = modeEntity ? this._hass.states[modeEntity]?.state : null;
+    const scheduleEntity = this.config.schedule_entity || `sensor.${objectId}_schedule_data`;
+    const scheduleState = this._hass.states[scheduleEntity] || Object.entries(this._hass.states)
+      .find(([entityId]) => entityId.startsWith("sensor.") && entityId.endsWith(`_${objectId}_schedule_data`))?.[1];
+    this._scheduleRaw = scheduleState?.attributes?.raw_schedule || null;
     const channelValues = [0, 1, 2, 3].map((channel) => {
       const channelState = this._hass.states[`sensor.${objectId}_pwm_channel_${channel}`];
       const value = channelState ? Number(channelState.state) : NaN;
@@ -353,6 +377,7 @@ class SkylightColorCard extends HTMLElement {
       : "Manual power (setting)";
     if (!this._intensityDragging) this._showIntensity(percent);
     this._renderSpectrum(channelValues, percent);
+    this._renderSchedule();
 
     this._palette.querySelectorAll(".swatch").forEach((button) => {
       const supported = availableEffects.has(button.dataset.effect);
@@ -414,6 +439,68 @@ class SkylightColorCard extends HTMLElement {
     this._intensityInput.value = String(percent);
     this._intensityValue.textContent = `${percent}%`;
     this._intensityHeading.textContent = `${percent}%`;
+  }
+
+  _renderSchedule() {
+    const container = this.shadowRoot?.querySelector(".schedule");
+    const svg = this.shadowRoot?.querySelector(".schedule-svg");
+    if (!container || !svg || !this._scheduleRaw) {
+      if (container) container.hidden = true;
+      return;
+    }
+
+    const points = this._scheduleRaw.split(":").filter(Boolean).map((row) => {
+      const [hour, minute, , colorCode, intensity] = row.split(";").map(Number);
+      if (![hour, minute, colorCode, intensity].every(Number.isFinite)
+        || hour < 0 || hour > 23 || minute < 0 || minute > 59
+        || colorCode < 0 || colorCode >= COLOR_SWATCHES.length
+        || intensity < 0 || intensity > 100) return null;
+      return {
+        minuteOfDay: hour * 60 + minute,
+        intensity,
+        color: COLOR_SWATCHES[colorCode],
+      };
+    }).filter(Boolean).sort((a, b) => a.minuteOfDay - b.minuteOfDay);
+
+    if (points.length < 2) {
+      container.hidden = true;
+      return;
+    }
+
+    const left = 50;
+    const right = 408;
+    const top = 14;
+    const bottom = 174;
+    const width = right - left;
+    const height = bottom - top;
+    const xFor = (minute) => left + (minute / 1440) * width;
+    const yFor = (value) => bottom - (Math.max(0, Math.min(100, value)) / 100) * height;
+    const grid = [0, 20, 40, 60, 80, 100].map((value) => {
+      const y = yFor(value);
+      return `<line x1="${left}" y1="${y}" x2="${right}" y2="${y}" stroke="#d3d3d3" stroke-width=".7"/><line x1="${left - 7}" y1="${y}" x2="${left}" y2="${y}" stroke="#777"/><text x="${left - 10}" y="${y + 4}" text-anchor="end">${value}%</text>`;
+    }).join("");
+    const timeTicks = [0, 4, 8, 12, 16, 20, 24].map((hour) => {
+      const x = left + (hour / 24) * width;
+      const label = `${hour}:00`;
+      return `<line x1="${x}" y1="${bottom}" x2="${x}" y2="${bottom + 6}" stroke="#154cff"/><text x="${x}" y="${bottom + 24}" text-anchor="middle">${label}</text>`;
+    }).join("");
+    const segments = points.slice(1).map((point, index) => {
+      const previous = points[index];
+      const x1 = xFor(previous.minuteOfDay);
+      const y1 = yFor(previous.intensity);
+      const x2 = xFor(point.minuteOfDay);
+      const y2 = yFor(point.intensity);
+      const gradientId = `schedule-segment-${index}`;
+      return `<defs><linearGradient id="${gradientId}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" gradientUnits="userSpaceOnUse"><stop stop-color="${previous.color}"/><stop offset="1" stop-color="${point.color}"/></linearGradient></defs><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="url(#${gradientId})" stroke-width="3"/><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#777" stroke-width="1.1" opacity=".8"/>`;
+    }).join("");
+    const nodes = points.map((point) => `<circle cx="${xFor(point.minuteOfDay)}" cy="${yFor(point.intensity)}" r="7" fill="${point.color}" stroke="#777" stroke-width="1.2"/>`).join("");
+    const now = new Date();
+    const minuteNow = now.getHours() * 60 + now.getMinutes();
+    const nowX = xFor(minuteNow);
+    const currentLabel = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+    svg.innerHTML = `<g font-family="Arial, sans-serif" font-size="11" fill="#111">${grid}<line x1="${left}" y1="${top}" x2="${left}" y2="${bottom}" stroke="#154cff" stroke-width="1.3"/><line x1="${left}" y1="${bottom}" x2="${right}" y2="${bottom}" stroke="#154cff" stroke-width="1.3"/>${timeTicks}</g><g>${segments}${nodes}</g><line x1="${nowX}" y1="${top}" x2="${nowX}" y2="${bottom}" stroke="#24aa65" stroke-width="2"/><text x="${Math.min(right - 3, Math.max(left + 3, nowX))}" y="10" text-anchor="${nowX > right - 35 ? "end" : "middle"}" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#16884d">${currentLabel}</text>`;
+    container.hidden = false;
   }
 
   _renderSpectrum(channels, intensity) {
