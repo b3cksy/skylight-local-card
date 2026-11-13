@@ -9,7 +9,7 @@ const COLOR_SWATCHES = [
 
 const PRESET_ROWS = ["A", "B", "C", "D", "E", "F"];
 
-// H-BAR-F spectrum profile decompiled from SL Control 1.1.41.
+// H-BAR-F spectrum profile
 const H_BAR_F_SPECTRUM = {
   wavelengths: [447, 447, 447, 520, 520, 615, 650],
   amplitudes: [
