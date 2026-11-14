@@ -11,6 +11,7 @@ This is a frontend card. It requires the [Skylight Local integration](https://gi
 - Shows the 60 preset colors (`A1`–`F10`) in a grid.
 - Highlights the active preset and updates from Home Assistant entity state.
 - Controls output power with a slider and plus/minus buttons.
+- Enables power adjustment in Manual mode; Auto mode shows the scheduled intensity and disables manual power controls.
 - Provides Auto, Manual, Demo, and Off mode controls.
 - Displays current mode, preset, and recent status information.
 - Plots the schedule stored in the lamp, with a live line marking the current time.
