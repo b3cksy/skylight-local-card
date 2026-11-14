@@ -35,7 +35,7 @@ function presetFromColorCode(value) {
 class SkylightColorCard extends HTMLElement {
   connectedCallback() {
     if (!this._scheduleTimer) {
-      this._scheduleTimer = window.setInterval(() => this._renderSchedule(), 60_000);
+      this._scheduleTimer = window.setInterval(() => this._update(), 60_000);
     }
     if (!this._powerRefreshTimer) {
       this._powerRefreshTimer = window.setInterval(() => this._refreshPower(), 5_000);
