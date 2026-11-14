@@ -13,6 +13,7 @@ This is a frontend card. It requires the [Skylight Local integration](https://gi
 - Controls output power with a slider and plus/minus buttons.
 - Enables power adjustment in Manual mode; Auto mode shows the scheduled intensity and disables manual power controls.
 - Provides Auto, Manual, Demo, and Off mode controls.
+- Shows a warning on the Manual button when the automatic schedule is paused.
 - Displays current mode, preset, and recent status information.
 - Plots the schedule stored in the lamp, with a live line marking the current time.
 - Includes the SL Control spectrum plot for the supported H-BAR-F profile.
