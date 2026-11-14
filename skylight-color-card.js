@@ -358,24 +358,30 @@ class SkylightColorCard extends HTMLElement {
     const scheduleState = this._hass.states[scheduleEntity] || Object.entries(this._hass.states)
       .find(([entityId]) => entityId.startsWith("sensor.") && entityId.endsWith(`_${objectId}_schedule_data`))?.[1];
     this._scheduleRaw = scheduleState?.attributes?.raw_schedule || null;
+    const intensityState = this._hass.states[this._manualIntensityEntity()]
+      || this._hass.states[this.config.power_entity];
+    const reportedIntensity = intensityState ? Number(intensityState.state) : NaN;
+    const manualIntensity = Number.isFinite(reportedIntensity)
+      ? Math.max(0, Math.min(100, reportedIntensity))
+      : null;
+    const intensity = modeState === "auto"
+      ? (this._currentScheduledIntensity() ?? manualIntensity)
+      : manualIntensity;
     const channelValues = [0, 1, 2, 3].map((channel) => {
       const channelState = this._hass.states[`sensor.${objectId}_pwm_channel_${channel}`];
       const value = channelState ? Number(channelState.state) : NaN;
       return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : null;
     });
-    const liveOutput = channelValues.every((value) => value !== null)
-      ? Math.max(...channelValues)
-      : null;
 
     this.shadowRoot.querySelector(".error")?.remove();
     this.shadowRoot.querySelector(".content").hidden = false;
     const activePreset = currentEffect;
-    this._intensityLabel.textContent = "Power setting";
-    this.shadowRoot.querySelector(".intensity-value-heading").textContent = liveOutput == null
+    this._intensityLabel.textContent = "Intensity";
+    this.shadowRoot.querySelector(".intensity-value-heading").textContent = intensity == null
       ? "—"
-      : `${Math.round(liveOutput)}%`;
-    if (!this._intensityDragging) this._showIntensity(liveOutput ?? 0);
-    this._renderSpectrum(channelValues, liveOutput ?? 0);
+      : `${Math.round(intensity)}%`;
+    if (!this._intensityDragging && intensity != null) this._showIntensity(intensity);
+    this._renderSpectrum(channelValues, intensity ?? 0);
     this._renderSchedule();
 
     this._palette.querySelectorAll(".swatch").forEach((button) => {
