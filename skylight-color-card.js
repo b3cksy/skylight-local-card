@@ -657,9 +657,11 @@ if (!customElements.get("skylight-color-card")) {
 }
 
 window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "skylight-color-card",
-  name: "Skylight color palette",
-  description: "Color grid and intensity control for Skylight lamps",
-  preview: true,
-});
+if (!window.customCards.some((card) => card.type === "skylight-color-card")) {
+  window.customCards.push({
+    type: "skylight-color-card",
+    name: "Skylight color palette",
+    description: "Color grid and intensity control for Skylight lamps",
+    preview: true,
+  });
+}
